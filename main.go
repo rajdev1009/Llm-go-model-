@@ -23,12 +23,11 @@ type ChatRequest struct {
 func getSystemPrompt() string {
 	content, err := ioutil.ReadFile("bot_instructions.txt")
 	if err != nil {
-		return "Tumhara naam Dev hai. Tum AI nahi ho."
+		return "Tumhara naam Dev hai. Tum AstraToonix ke creator Raj Dev ke assistant ho."
 	}
 	return string(content)
 }
 
-// Ye function link open hote hi HTML dikhayega
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	content, err := ioutil.ReadFile("index.html")
 	if err != nil {
@@ -74,7 +73,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	chat := model.StartChat()
 	chat.History = []*genai.Content{
 		{Role: "user", Parts: []genai.Part{genai.Text(getSystemPrompt())}},
-		{Role: "model", Parts: []genai.Part{genai.Text("Ok! Main Dev hoon.")}},
+		{Role: "model", Parts: []genai.Part{genai.Text("Ok! Main taiyaar hoon.")}},
 	}
 
 	resp, err := chat.SendMessage(ctx, genai.Text(req.Message))
@@ -88,8 +87,8 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", indexHandler) // Link kholte hi HTML aayega
-	http.HandleFunc("/chat", chatHandler) // Message yahan aayenge
+	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/chat", chatHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" { port = "8080" }
