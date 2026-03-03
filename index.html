@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat with Dev</title>
+    <title>Chat with Dev | AstraToonix</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             background-color: #1e1e24;
             display: flex;
             justify-content: center;
@@ -18,67 +18,79 @@
             width: 400px;
             max-width: 90%;
             background: #ffffff;
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
         }
         .chat-header {
             background: #ff4500;
             color: white;
             padding: 15px;
             text-align: center;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
+            letter-spacing: 1px;
         }
         .chat-box {
             height: 400px;
             overflow-y: auto;
             padding: 15px;
-            background: #f5f5f5;
+            background: #f0f2f5;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
         }
         .message {
             padding: 10px 15px;
-            border-radius: 20px;
-            max-width: 75%;
+            border-radius: 18px;
+            max-width: 80%;
             font-size: 15px;
+            line-height: 1.4;
             word-wrap: break-word;
+            position: relative;
         }
         .user-msg {
-            background: #dcf8c6;
+            background: #ff4500;
+            color: white;
             align-self: flex-end;
             border-bottom-right-radius: 2px;
         }
         .bot-msg {
             background: #ffffff;
+            color: #333;
             align-self: flex-start;
             border-bottom-left-radius: 2px;
-            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .input-area {
             display: flex;
-            padding: 10px;
+            padding: 15px;
             background: #fff;
             border-top: 1px solid #ddd;
         }
         #user-input {
             flex: 1;
-            padding: 10px;
+            padding: 12px 18px;
             border: 1px solid #ccc;
-            border-radius: 20px;
+            border-radius: 25px;
             outline: none;
+            font-size: 15px;
         }
         #send-btn {
             background: #ff4500;
             color: white;
             border: none;
-            padding: 10px 15px;
+            padding: 0 20px;
             margin-left: 10px;
-            border-radius: 20px;
+            border-radius: 25px;
             cursor: pointer;
             font-weight: bold;
+            transition: 0.3s;
+        }
+        #send-btn:hover {
+            background: #e63e00;
         }
     </style>
 </head>
@@ -87,18 +99,20 @@
 <div class="chat-container">
     <div class="chat-header">Dev (AstraToonix)</div>
     <div class="chat-box" id="chat-box">
-        <div class="message bot-msg">Bolo bhai, kya kaam hai?</div>
+        <div class="message bot-msg">Aur bhai Rajdev! Bol kya help karun?</div>
     </div>
     <div class="input-area">
-        <input type="text" id="user-input" placeholder="Message likho..." onkeypress="handleKeyPress(event)">
+        <input type="text" id="user-input" placeholder="Yahan likho..." onkeypress="handleKeyPress(event)">
         <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
 </div>
 
 <script>
-    // Koyeb par deploy hone ke baad URL change kar dena 
-    // Example: const backendUrl = "https://your-app.koyeb.app/chat";
-    const backendUrl = "http://localhost:8080/chat"; 
+    /* DHYAN DEIN: 
+       Yahan apna Koyeb ka final URL dalo.
+       Example: "https://my-bot-app.koyeb.app/chat"
+    */
+    const backendUrl = "https://TUMHARA-APP-NAME.koyeb.app/chat"; 
 
     function appendMessage(text, sender) {
         const chatBox = document.getElementById("chat-box");
@@ -106,16 +120,26 @@
         msgDiv.classList.add("message", sender === "user" ? "user-msg" : "bot-msg");
         msgDiv.innerText = text;
         chatBox.appendChild(msgDiv);
-        chatBox.scrollTop = chatBox.scrollHeight; 
+        chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     async function sendMessage() {
         const inputField = document.getElementById("user-input");
         const message = inputField.value.trim();
+        
         if (!message) return;
 
         appendMessage(message, "user");
         inputField.value = "";
+
+        // Loading indicator ke liye
+        const loadingId = "loading-" + Date.now();
+        const chatBox = document.getElementById("chat-box");
+        const loadingDiv = document.createElement("div");
+        loadingDiv.classList.add("message", "bot-msg");
+        loadingDiv.id = loadingId;
+        loadingDiv.innerText = "...";
+        chatBox.appendChild(loadingDiv);
 
         try {
             const response = await fetch(backendUrl, {
@@ -123,10 +147,18 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: message })
             });
+            
             const data = await response.json();
-            appendMessage(data.reply || "No reply from server", "bot");
+            document.getElementById(loadingId).remove(); // Loading hatayen
+            
+            if (data.reply) {
+                appendMessage(data.reply, "bot");
+            } else {
+                appendMessage("Bhai, server ne koi jawaab nahi diya.", "bot");
+            }
         } catch (error) {
-            appendMessage("Bhai, server connect nahi ho raha hai.", "bot");
+            document.getElementById(loadingId).remove();
+            appendMessage("Connect nahi ho raha! URL check kar lo.", "bot");
         }
     }
 
