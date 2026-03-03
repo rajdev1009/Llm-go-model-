@@ -2,18 +2,17 @@ FROM golang:1.21-alpine
 
 WORKDIR /app
 
-# Pehle dependencies setup karenge
+# Pehle modules setup karenge
 COPY go.mod ./
-# go.sum agar nahi bhi hai toh ye command use generate kar degi
+# Forcefully dependencies install karne ke liye
 RUN go mod tidy
 
-# Ab baki sari files copy karenge
+# Sari files copy karo
 COPY . .
 
-# Build process
-RUN go build -o main .
+# Environment setup for build
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
 EXPOSE 8080
 
-# Application start
 CMD ["./main"]
