@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
@@ -75,7 +76,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	selectedKey := apiKeys[keyIndex]
 
 	if selectedKey == "" {
-		jsonError(w, "API key nahi mila. DigitalOcean mein API_KEY_1 set karo!", http.StatusInternalServerError)
+		jsonError(w, "API key nahi mila. Koyeb mein API_KEY_1 set karo!", http.StatusInternalServerError)
 		return
 	}
 
@@ -85,12 +86,13 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	client, err := genai.NewClient(ctx, option.WithAPIKey(selectedKey))
 	if err != nil {
 		log.Printf("❌ Client error: %v", err)
-		jsonError(w, "Gemini client error: "+err.Error(), http.StatusInternalServerError)
+		jsonError(w, "Gemini client error", http.StatusInternalServerError)
 		return
 	}
 	defer client.Close()
 
-	model := client.GenerativeModel("gemini-3.1-pro-preview")
+	// ✅ Ab LIGHT + FAST model (bahut zyada rate limit milta hai free tier pe)
+	model := client.GenerativeModel("gemini-1.5-flash")
 
 	chat := model.StartChat()
 	chat.History = []*genai.Content{
@@ -98,46 +100,47 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		{Role: "model", Parts: []genai.Part{genai.Text("Ok! Main taiyaar hoon.")}},
 	}
 
-	resp, err := chat.SendMessage(ctx, genai.Text(req.Message))
-	if err != nil {
-		log.Printf("❌ SendMessage error: %v", err)
-		jsonError(w, "Gemini se reply nahi aaya: "+err.Error(), http.StatusInternalServerError)
+	// Simple retry for 429
+	var resp *genai.GenerateContentResponse
+	var sendErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		resp, sendErr = chat.SendMessage(ctx, genai.Text(req.Message))
+		if sendErr == nil {
+			break
+		}
+		if attempt < 2 {
+			log.Printf("⚠️ Attempt %d failed, retrying in 2s...", attempt+1)
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	if sendErr != nil {
+		log.Printf("❌ SendMessage error: %v", sendErr)
+		jsonError(w, "Gemini busy hai, 10 sec baad try karo: "+sendErr.Error(), http.StatusTooManyRequests)
 		return
 	}
 
-	log.Printf("✅ Gemini raw response received | Candidates: %d", len(resp.Candidates))
+	log.Printf("✅ Gemini response OK | Candidates: %d", len(resp.Candidates))
 
 	if len(resp.Candidates) == 0 {
-		log.Println("❌ No candidates in response")
-		jsonError(w, "Gemini ne koi reply nahi diya (safety block?)", http.StatusInternalServerError)
+		jsonError(w, "Gemini ne koi reply nahi diya", http.StatusInternalServerError)
 		return
 	}
 
-	// ✅ PROPER TEXT EXTRACTION (yeh "No reply" ka asli culprit tha)
 	var reply string
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if text, ok := part.(genai.Text); ok {
 			reply += string(text)
-		} else if textPtr, ok := part.(*genai.Text); ok { // pointer case bhi handle
-			reply += string(*textPtr)
 		}
 	}
 
-	log.Printf("📤 Final reply length: %d chars | First 100: %s...", len(reply), reply[:min(100, len(reply))])
-
 	if reply == "" {
-		jsonError(w, "Gemini ne empty reply diya (model issue ya safety filter)", http.StatusInternalServerError)
+		jsonError(w, "Empty reply from Gemini", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("📤 Reply sent: %d chars", len(reply))
 	json.NewEncoder(w).Encode(map[string]string{"reply": reply})
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func main() {
@@ -148,6 +151,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	log.Printf("🚀 AstraToonix Dev Chat Server running on port %s", port)
+	log.Printf("🚀 AstraToonix Dev Chat Server running on port %s (gemini-1.5-flash)", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
