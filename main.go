@@ -28,6 +28,12 @@ func getSystemPrompt() string {
 	return string(content)
 }
 
+func jsonError(w http.ResponseWriter, msg string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	content, err := ioutil.ReadFile("index.html")
 	if err != nil {
@@ -47,29 +53,44 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
 	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+		jsonError(w, "Only POST allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req ChatRequest
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 
-	apiKeys := []string{os.Getenv("API_KEY_1"), os.Getenv("API_KEY_2"), os.Getenv("API_KEY_3"), os.Getenv("API_KEY_4")}
+	// 4 API keys rotate karne ke liye
+	apiKeys := []string{
+		os.Getenv("API_KEY_1"),
+		os.Getenv("API_KEY_2"),
+		os.Getenv("API_KEY_3"),
+		os.Getenv("API_KEY_4"),
+	}
 	currentCount := atomic.AddUint64(&requestCounter, 1)
 	keyIndex := (currentCount - 1) % uint64(len(apiKeys))
 	selectedKey := apiKeys[keyIndex]
 
+	if selectedKey == "" {
+		jsonError(w, "API key nahi mila. DigitalOcean Settings → Environment Variables mein API_KEY_1 daal do!", http.StatusInternalServerError)
+		return
+	}
+
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(selectedKey))
 	if err != nil {
-		http.Error(w, "Client error", http.StatusInternalServerError)
+		jsonError(w, "Gemini client error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer client.Close()
 
-	model := client.GenerativeModel("gemini-3.1-pro")
+	// ✅ March 2026 ka correct model
+	model := client.GenerativeModel("gemini-3.1-pro-preview")
+
 	chat := model.StartChat()
 	chat.History = []*genai.Content{
 		{Role: "user", Parts: []genai.Part{genai.Text(getSystemPrompt())}},
@@ -78,7 +99,12 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := chat.SendMessage(ctx, genai.Text(req.Message))
 	if err != nil {
-		http.Error(w, "AI Error", http.StatusInternalServerError)
+		jsonError(w, "Gemini se reply nahi aaya: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		jsonError(w, "Gemini ne empty response diya", http.StatusInternalServerError)
 		return
 	}
 
@@ -91,6 +117,9 @@ func main() {
 	http.HandleFunc("/chat", chatHandler)
 
 	port := os.Getenv("PORT")
-	if port == "" { port = "8080" }
+	if port == "" {
+		port = "8080"
+	}
+	log.Printf("🚀 Server running on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
