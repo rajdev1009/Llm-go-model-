@@ -49,7 +49,6 @@
             font-size: 15px;
             line-height: 1.4;
             word-wrap: break-word;
-            position: relative;
         }
         .user-msg {
             background: #ff4500;
@@ -87,10 +86,6 @@
             border-radius: 25px;
             cursor: pointer;
             font-weight: bold;
-            transition: 0.3s;
-        }
-        #send-btn:hover {
-            background: #e63e00;
         }
     </style>
 </head>
@@ -108,11 +103,8 @@
 </div>
 
 <script>
-    /* DHYAN DEIN: 
-       Yahan apna Koyeb ka final URL dalo.
-       Example: "https://my-bot-app.koyeb.app/chat"
-    */
-    const backendUrl = "https://explicit-miranda-rajdev-3d1ae6bb.koyeb.app/chat"; 
+    // FIX: Link se direct chalane ke liye sirf /chat kaafi hai
+    const backendUrl = window.location.origin + "/chat"; 
 
     function appendMessage(text, sender) {
         const chatBox = document.getElementById("chat-box");
@@ -126,13 +118,11 @@
     async function sendMessage() {
         const inputField = document.getElementById("user-input");
         const message = inputField.value.trim();
-        
         if (!message) return;
 
         appendMessage(message, "user");
         inputField.value = "";
 
-        // Loading indicator ke liye
         const loadingId = "loading-" + Date.now();
         const chatBox = document.getElementById("chat-box");
         const loadingDiv = document.createElement("div");
@@ -147,18 +137,12 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: message })
             });
-            
             const data = await response.json();
-            document.getElementById(loadingId).remove(); // Loading hatayen
-            
-            if (data.reply) {
-                appendMessage(data.reply, "bot");
-            } else {
-                appendMessage("Bhai, server ne koi jawaab nahi diya.", "bot");
-            }
+            document.getElementById(loadingId).remove();
+            appendMessage(data.reply || "No reply", "bot");
         } catch (error) {
             document.getElementById(loadingId).remove();
-            appendMessage("Connect nahi ho raha! URL check kar lo.", "bot");
+            appendMessage("Connect nahi ho raha!", "bot");
         }
     }
 
@@ -166,6 +150,5 @@
         if (event.key === "Enter") sendMessage();
     }
 </script>
-
 </body>
 </html>
