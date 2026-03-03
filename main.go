@@ -91,8 +91,8 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer client.Close()
 
-	// ✅ Ab LIGHT + FAST model (bahut zyada rate limit milta hai free tier pe)
-	model := client.GenerativeModel("gemini-1.5-flash")
+	// ✅ March 2026 ka current best fast model
+	model := client.GenerativeModel("gemini-2.5-flash")
 
 	chat := model.StartChat()
 	chat.History = []*genai.Content{
@@ -100,7 +100,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		{Role: "model", Parts: []genai.Part{genai.Text("Ok! Main taiyaar hoon.")}},
 	}
 
-	// Simple retry for 429
+	// Retry logic for any transient errors
 	var resp *genai.GenerateContentResponse
 	var sendErr error
 	for attempt := 0; attempt < 3; attempt++ {
@@ -109,14 +109,14 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if attempt < 2 {
-			log.Printf("⚠️ Attempt %d failed, retrying in 2s...", attempt+1)
+			log.Printf("⚠️ Attempt %d failed (%v), retrying in 2s...", attempt+1, sendErr)
 			time.Sleep(2 * time.Second)
 		}
 	}
 
 	if sendErr != nil {
-		log.Printf("❌ SendMessage error: %v", sendErr)
-		jsonError(w, "Gemini busy hai, 10 sec baad try karo: "+sendErr.Error(), http.StatusTooManyRequests)
+		log.Printf("❌ FINAL SendMessage error: %v", sendErr)  // full error ab logs mein dikhega
+		jsonError(w, "Gemini busy hai, 10 sec baad try karo", http.StatusTooManyRequests)
 		return
 	}
 
@@ -151,6 +151,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	log.Printf("🚀 AstraToonix Dev Chat Server running on port %s (gemini-1.5-flash)", port)
+	log.Printf("🚀 AstraToonix Dev Chat Server running on port %s (gemini-2.5-flash)", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
