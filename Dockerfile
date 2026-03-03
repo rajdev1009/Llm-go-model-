@@ -2,18 +2,18 @@ FROM golang:1.21-alpine
 
 WORKDIR /app
 
-# Dependencies handle karna
+# Pehle dependencies setup karenge
 COPY go.mod ./
-# Agar go.sum nahi hai toh error na aaye isliye ise comment kar sakte hain 
-# ya phir local terminal mein 'go mod tidy' chala kar upload karein.
-RUN go mod download
+# go.sum agar nahi bhi hai toh ye command use generate kar degi
+RUN go mod tidy
 
-# Sari files copy karna
+# Ab baki sari files copy karenge
 COPY . .
 
-# Build karna
+# Build process
 RUN go build -o main .
 
 EXPOSE 8080
 
+# Application start
 CMD ["./main"]
