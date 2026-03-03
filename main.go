@@ -23,16 +23,16 @@ type ChatRequest struct {
 func getSystemPrompt() string {
 	content, err := ioutil.ReadFile("bot_instructions.txt")
 	if err != nil {
-		return "Tumhara naam Dev hai."
+		return "Tumhara naam Dev hai. Tum AI nahi ho."
 	}
 	return string(content)
 }
 
-// --- NAYA FUNCTION: HTML FILE DIKHANE KE LIYE ---
+// Ye function link open hote hi HTML dikhayega
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	content, err := ioutil.ReadFile("index.html")
 	if err != nil {
-		fmt.Fprintf(w, "Error: index.html file nahi mili server par!")
+		fmt.Fprintf(w, "HTML file missing on server")
 		return
 	}
 	w.Header().Set("Content-Type", "text/html")
@@ -50,20 +50,14 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST allowed on this endpoint", http.StatusMethodNotAllowed)
+		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req ChatRequest
 	json.NewDecoder(r.Body).Decode(&req)
 
-	apiKeys := []string{
-		os.Getenv("API_KEY_1"),
-		os.Getenv("API_KEY_2"),
-		os.Getenv("API_KEY_3"),
-		os.Getenv("API_KEY_4"),
-	}
-
+	apiKeys := []string{os.Getenv("API_KEY_1"), os.Getenv("API_KEY_2"), os.Getenv("API_KEY_3"), os.Getenv("API_KEY_4")}
 	currentCount := atomic.AddUint64(&requestCounter, 1)
 	keyIndex := (currentCount - 1) % uint64(len(apiKeys))
 	selectedKey := apiKeys[keyIndex]
@@ -80,7 +74,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	chat := model.StartChat()
 	chat.History = []*genai.Content{
 		{Role: "user", Parts: []genai.Part{genai.Text(getSystemPrompt())}},
-		{Role: "model", Parts: []genai.Part{genai.Text("Theek hai, main taiyaar hoon!")}},
+		{Role: "model", Parts: []genai.Part{genai.Text("Ok! Main Dev hoon.")}},
 	}
 
 	resp, err := chat.SendMessage(ctx, genai.Text(req.Message))
@@ -94,10 +88,8 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// Root URL par click karte hi HTML dikhega
-	http.HandleFunc("/", indexHandler)
-	// API call ke liye /chat endpoint
-	http.HandleFunc("/chat", chatHandler)
+	http.HandleFunc("/", indexHandler) // Link kholte hi HTML aayega
+	http.HandleFunc("/chat", chatHandler) // Message yahan aayenge
 
 	port := os.Getenv("PORT")
 	if port == "" { port = "8080" }
