@@ -103,8 +103,7 @@
 </div>
 
 <script>
-    // FIX: Link se direct chalane ke liye sirf /chat kaafi hai
-    const backendUrl = window.location.origin + "/chat"; 
+    const backendUrl = window.location.origin + "/chat";
 
     function appendMessage(text, sender) {
         const chatBox = document.getElementById("chat-box");
@@ -137,12 +136,20 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: message })
             });
+
+            if (!response.ok) {
+                const text = await response.text();
+                document.getElementById(loadingId).remove();
+                appendMessage("Server Error: " + text.substring(0, 300), "bot");
+                return;
+            }
+
             const data = await response.json();
             document.getElementById(loadingId).remove();
-            appendMessage(data.reply || "No reply", "bot");
+            appendMessage(data.reply || data.error || "No reply", "bot");
         } catch (error) {
             document.getElementById(loadingId).remove();
-            appendMessage("Connect nahi ho raha!", "bot");
+            appendMessage("Connect nahi ho raha! (Check logs on DigitalOcean)", "bot");
         }
     }
 
